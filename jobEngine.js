@@ -26,6 +26,20 @@ const LOCATION_PREFERRED = [
   'international', 'all countries'
 ];
 
+// ─── Strip HTML tags (safely) ───
+function stripHtml(text) {
+  return (text || '')
+    .replace(/<[^>]*>/g, ' ')  // Strip all HTML tags
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&[a-zA-Z]+;/g, ' ')  // Any other HTML entities
+    .replace(/\s+/g, ' ')  // Collapse whitespace
+    .trim();
+}
+
 // ─── Rotating User-Agent pool to avoid blocks ───
 const USER_AGENTS = [
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
@@ -218,7 +232,7 @@ async function fetchWeWorkRemotely() {
               source: 'WeWorkRemotely',
               title: job.title || job.name || '',
               company: job.company?.name || '',
-              description: (job.description || '').substring(0, 500),
+              description: stripHtml(job.description || '').substring(0, 500),
               url: `https://weworkremotely.com/remote-jobs/${job.id || job.slug}`,
               salary: null, // WWR doesn't always show salary
               tags: (job.tags || []).join(', '),
@@ -267,7 +281,7 @@ async function fetchJobicy() {
         source: 'Jobicy',
         title: job.jobTitle || '',
         company: job.companyName || '',
-        description: (job.jobDescription || '').substring(0, 500),
+        description: stripHtml(job.jobDescription || '').substring(0, 500),
         url: job.jobURL || `https://jobicy.com/jobs/${job.id}`,
         salary: job.salary || null,
         tags: (job.jobIndustry || '') + ', ' + (job.jobGeo || ''),

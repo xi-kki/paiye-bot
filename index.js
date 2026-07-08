@@ -1,5 +1,5 @@
 // ============================================================
-// 🤖 @Paiye_Bot — Job Match Engine v3
+// 🤖 Paiye — AI Career Agent
 //   Custom Telegram client | No 409 conflicts | AI Chat
 // ============================================================
 
@@ -85,16 +85,16 @@ function mainKeyboard() {
   return {
     inline_keyboard: [
       [
-        { text: '🤖 AI/ML Jobs', callback_data: 'jobs_ai' },
-        { text: '✍️ Writing Jobs', callback_data: 'jobs_writing' }
+        { text: '🔍 Search', callback_data: 'search_prompt' },
+        { text: '🇳🇬 Nigeria', callback_data: 'jobs_nigeria' }
       ],
       [
-        { text: '🏷️ Data Jobs', callback_data: 'jobs_data' },
-        { text: '🇳🇬 Nigeria Jobs', callback_data: 'jobs_nigeria' }
+        { text: '📥 Subscribe', callback_data: 'subscribe' },
+        { text: '💬 AI Chat', callback_data: 'chat_ai' }
       ],
       [
-        { text: '📥 Subscribe Daily', callback_data: 'subscribe' },
-        { text: '💬 Chat AI', callback_data: 'chat_ai' }
+        { text: '📄 Resume', callback_data: 'resume' },
+        { text: '🔄 Refresh', callback_data: 'refresh' }
       ],
       [
         { text: '📄 Resume', callback_data: 'resume' },
@@ -137,7 +137,7 @@ function formatJobCard(job, index) {
   const title = (job.title || 'Untitled').replace(/[_*[\]()~`>#+\-=|{}.!]/g, '\\$&');
   const company = (job.company || 'Unknown').replace(/[_*[\]()~`>#+\-=|{}.!]/g, '\\$&');
   const source = (job.source || '').replace(/[_*[\]()~`>#+\-=|{}.!]/g, '\\$&');
-  const desc = (job.description || '').substring(0, 200).replace(/[_*[\]()~`>#+\-=|{}.!]/g, '\\$&');
+  const desc = stripHtml(job.description || '').substring(0, 200).replace(/[_*[\]()~`>#+\-=|{}.!]/g, '\\$&');
   const url = job.url || '';
 
   return (
@@ -148,6 +148,19 @@ function formatJobCard(job, index) {
     `   📝 ${desc}...\n` +
     `   🔗 [Apply Here](${url})\n`
   );
+}
+
+function stripHtml(text) {
+  return (text || '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&[a-zA-Z]+;/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function escapeMD(text) {
@@ -206,10 +219,7 @@ bot.on('message', async (msg) => {
       case '/start': case '/menu': return cmdStart(msg);
       case '/help': return cmdHelp(msg);
       case '/ai': return cmdAI(msg);
-      case '/jobs-ai': return cmdJobs(msg, 'ai', '🤖 AI/ML');
-      case '/jobs-writing': return cmdJobs(msg, 'writing', '✍️ Content/Writing');
-      case '/jobs-data': return cmdJobs(msg, 'data-annotation', '🏷️ Data Annotation');
-      case '/jobs': case '/search': return cmdSearch(msg, args);
+      case '/search': return cmdSearch(msg, args);
       case '/nigeria': return cmdNigeria(msg);
       case '/subscribe': return cmdSubscribe(msg);
       case '/unsubscribe': return cmdUnsubscribe(msg);
@@ -273,10 +283,14 @@ bot.on('callback_query', async (query) => {
   };
 
   switch (data) {
-    case 'jobs_ai': return cmdJobs(fakeMsg, 'ai', '🤖 AI/ML');
-    case 'jobs_writing': return cmdJobs(fakeMsg, 'writing', '✍️ Content/Writing');
-    case 'jobs_data': return cmdJobs(fakeMsg, 'data-annotation', '🏷️ Data Annotation');
-    case 'jobs_nigeria': return cmdNigeria(fakeMsg);
+            case 'search_prompt':
+      return bot.sendMessage(chatId,
+        '🔍 *Search Jobs*\n\nWhat are you looking for? Examples:\n' +
+        '• `senior AI engineer remote`\n' +
+        '• `writing jobs`\n' +
+        '• `data annotation`\n\nJust type your search! 👇',
+        { parse_mode: 'Markdown' });
+    case 'jobs_nigeria': return cmdNigeria(fakeMsg);case 'jobs_nigeria': return cmdNigeria(fakeMsg);case 'jobs_nigeria': return cmdNigeria(fakeMsg);case 'jobs_nigeria': return cmdNigeria(fakeMsg);
     case 'subscribe': return cmdSubscribe(fakeMsg);
     case 'refresh': return cmdRefresh(fakeMsg);
     case 'help': return cmdHelp(fakeMsg);
@@ -314,7 +328,7 @@ async function cmdStart(msg) {
 
   await bot.sendMessage(chatId,
     `Hey ${escapeMD(name)}! 👋\n\n` +
-    `I'm *@Paiye_Bot — your AI Career Agent* 🔥\n\n` +
+    `I'm *Paiye — your AI Career Agent* 🔥\n\n` +
     `I find *remote jobs* open to *Nigeria & worldwide*! 🌍\n\n` +
     `*What I can do:*\n` +
     `• 🔍 /search \\<query\\> — Natural language job search\n` +
@@ -336,7 +350,7 @@ async function cmdStart(msg) {
 // ═══════════════════════════════════════════════════════════
 async function cmdHelp(msg) {
   await bot.sendMessage(msg.chat.id,
-    '📘 *@Paiye_Bot — Complete Guide*\n\n' +
+    '📘 *Paiye — Complete Guide*\n\n' +
     '*🔍 Job Search*\n' +
     '• /search \\<query\\> — Search in plain English (e.g., "senior ML engineer remote \\$150k")\n' +
     '• /jobs\\-ai — Top 5 AI/ML matches\n' +
@@ -380,139 +394,7 @@ async function cmdAI(msg) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// COMMAND: /jobs-ai | /jobs-writing | /jobs-data
-// ═══════════════════════════════════════════════════════════
-async function cmdJobs(msg, profileId, label) {
-  const chatId = msg.chat.id;
-  const sentMsg = await bot.sendMessage(chatId,
-    `🔍 Searching ${escapeMD(label)} jobs... *(cached 30min)*`);
-
-  try {
-    const results = await searchJobs(false);
-    const jobs = (results[profileId]?.jobs || []).slice(0, MAX_JOBS_PER_CATEGORY);
-
-    if (jobs.length === 0) {
-      return bot.editMessageText(chatId, sentMsg.result?.message_id,
-        '😕 No matches right now. Try /refresh to re\\-scan.', { parse_mode: 'Markdown' });
-    }
-
-    const cacheTag = jobCache.isFresh ? '📦' : '🔄';
-    let message = `*${label} Jobs* ${cacheTag}\n\n`;
-    jobs.forEach((j, i) => { message += formatJobCard(j, i + 1) + '\n'; });
-    message += '📬 Subscribe for daily delivery: /subscribe';
-
-    await bot.editMessageText(chatId, sentMsg.result?.message_id, message, {
-      parse_mode: 'Markdown',
-      disable_web_page_preview: true,
-      reply_markup: mainKeyboard()
-    });
-  } catch (err) {
-    console.error('❌ /jobs error:', err.message);
-    await bot.sendMessage(chatId, '❌ Error searching jobs. Try again.');
-  }
-}
-
-// ═══════════════════════════════════════════════════════════
-// COMMAND: /search <natural language query>
-// ═══════════════════════════════════════════════════════════
-async function cmdSearch(msg, query) {
-  const chatId = msg.chat.id;
-
-  if (!query) {
-    return bot.sendMessage(chatId,
-      '🔍 *Deep Search:* Tell me what you want!\n\n' +
-      'Examples:\n' +
-      '• `/search senior AI engineer remote`\n' +
-      '• `/search writing jobs paying $80k+`\n' +
-      '• `/search data annotation entry level`\n' +
-      '• `/search react developer Nigeria friendly`',
-      { parse_mode: 'Markdown' });
-  }
-
-  const sentMsg = await bot.sendMessage(chatId,
-    `🔍 Searching for "*${escapeMD(query)}*"...`);
-
-  try {
-    const results = await searchJobs(false);
-
-    // Collect all jobs across all profiles
-    const allJobs = [];
-    for (const profileId of ['ai', 'writing', 'data-annotation']) {
-      if (results[profileId]?.jobs) {
-        results[profileId].jobs.forEach(j => allJobs.push(j));
-      }
-    }
-
-    // Use AI to rank results if available, otherwise simple keyword match
-    let ranked;
-    const queryLC = query.toLowerCase();
-
-    // Simple keyword scoring as fallback
-    ranked = allJobs
-      .map(job => {
-        const text = (job.title + ' ' + job.company + ' ' + (job.description || '') + ' ' + (job.tags || '')).toLowerCase();
-        const queryWords = queryLC.split(/\s+/).filter(w => w.length > 2);
-        let score = 0;
-        for (const word of queryWords) {
-          if (text.includes(word)) score += 10;
-          if ((job.title || '').toLowerCase().includes(word)) score += 30;
-          if ((job.tags || '').toLowerCase().includes(word)) score += 15;
-        }
-        // Seniority boost
-        if (queryLC.includes('senior') && (job.title || '').toLowerCase().includes('senior')) score += 20;
-        if (queryLC.includes('junior') && (job.title || '').toLowerCase().includes('junior')) score += 20;
-        // Salary boost
-        if (queryLC.includes('$') && job.salary) {
-          const match = queryLC.match(/\$(\d+)/);
-          if (match) {
-            const targetSalary = parseInt(match[1]) * 1000;
-            const salaryNums = job.salary.match(/\d+/g);
-            if (salaryNums && parseInt(salaryNums[0]) >= targetSalary) score += 25;
-          }
-        }
-        // Location boost
-        if ((queryLC.includes('nigeria') || queryLC.includes('anywhere') || queryLC.includes('global'))
-            && job.locationStatus !== 'restricted') score += 20;
-        // Boost for remote queries
-        if (queryLC.includes('remote') && job.location !== 'On-site') score += 10;
-
-        return { ...job, searchScore: score };
-      })
-      .filter(j => j.searchScore > 0)
-      .sort((a, b) => b.searchScore - a.searchScore)
-      .slice(0, 8);
-
-    if (ranked.length === 0) {
-      return bot.editMessageText(chatId, sentMsg.result?.message_id,
-        `😕 No matches for "${escapeMD(query)}". Try different keywords or /refresh for fresh data.`,
-        { parse_mode: 'Markdown' });
-    }
-
-    userData.addSearchHistory(chatId, query);
-
-    let message = `*🔍 Results for:* ${escapeMD(query)}\n`;
-    message += `📊 ${ranked.length} matches found\n\n`;
-    ranked.forEach((job, i) => {
-      const badge = job.searchScore >= 50 ? '⭐' : job.searchScore >= 25 ? '👍' : '🔹';
-      const title = (job.title || 'Untitled').replace(/[_*[\]()~`>#+\-=|{}.!]/g, '\\$&');
-      const company = (job.company || 'Unknown').replace(/[_*[\]()~`>#+\-=|{}.!]/g, '\\$&');
-      message += `${i + 1}. ${badge} *${title}*\n   🏢 ${company} | 💯 ${job.confidence || '?'}% match\n`;
-      if (job.salary) message += `   💰 ${job.salary}\n`;
-      message += `   🔗 ${job.url || 'N/A'}\n\n`;
-    });
-    message += '💡 _Use /subscribe for daily delivery!_';
-
-    await bot.editMessageText(chatId, sentMsg.result?.message_id, message, {
-      parse_mode: 'Markdown',
-      disable_web_page_preview: true,
-      reply_markup: mainKeyboard()
-    });
-  } catch (err) {
-    console.error('❌ /search error:', err.message);
-    await bot.sendMessage(chatId, '❌ Search failed. Try again.');
-  }
-}
-
+// COMMAND: /search — Deep search
 // ═══════════════════════════════════════════════════════════
 // COMMAND: /nigeria
 // ═══════════════════════════════════════════════════════════
@@ -970,7 +852,7 @@ async function main() {
   await bot.start();
 
   console.log('');
-  console.log('🤖 @Paiye_Bot — AI Career Agent v3 is LIVE!');
+  console.log('🤖 Paiye — AI Career Agent v3 is LIVE!');
   console.log('⏰ Daily job delivery: 7:00 AM WAT');
   console.log('📦 Cache TTL: 30 minutes');
   console.log(`📂 ${SUBSCRIBERS.size} subscriber(s)`);
