@@ -1,0 +1,26 @@
+# ============================================================
+# @Paiye_Bot — .gitignore
+# ============================================================
+
+# Environment variables (API keys, secrets)
+.env
+
+# Node dependencies
+node_modules/
+
+# Log files
+*.log
+bot-output.log
+bot-run.log
+bot-err.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# User data (resumes, preferences — contains personal info)
+userData.json
+uploads/
+
+# Feedback & debug
+feedback.log
