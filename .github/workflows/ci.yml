@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+      - run: npm ci
+      - name: Syntax check all files
+        run: npm run syntax
+      - name: Check for secrets in code
+        run: |
+          if grep -rE '(sk-[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{36}|gsk_[a-zA-Z0-9]{44})' \
+            --include='*.{js,ts,py,env,yml,yaml,json}' \
+            --exclude-dir=node_modules --exclude-dir=.git .; then
+            echo "❌ Potential secrets detected!"
+            exit 1
+          fi
+          echo "✅ No secrets in code"

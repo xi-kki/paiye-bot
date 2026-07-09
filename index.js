@@ -17,7 +17,7 @@ const { parseResume, cleanupFile, UPLOADS_DIR } = require('./resumeParser');
 // ─── Config ───
 const TOKEN = process.env.TELEGRAM_TOKEN;
 if (!TOKEN) {
-  console.error('❌ TELEGRAM_TOKEN not set in .env file!');
+  console.error('❌ Bot token missing — check .env file');
   process.exit(1);
 }
 
@@ -42,6 +42,7 @@ function loadSubscribers() {
   try {
     if (fs.existsSync(SUBSCRIBERS_FILE)) {
       const raw = fs.readFileSync(SUBSCRIBERS_FILE, 'utf8');
+      if (!raw.trim()) throw new Error('Empty subscribers file');
       const data = JSON.parse(raw);
       const map = new Map();
       for (const [key, val] of Object.entries(data)) map.set(String(key), val);

@@ -1,15 +1,17 @@
 {
-  "name": "telegram-bot",
-  "version": "1.0.0",
-  "description": "",
+  "name": "paiye-bot",
+  "version": "3.0.0",
+  "description": "Paiye — AI Career Agent. Remote job search, ATS analysis, interview prep, AI chat on Telegram.",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node -c index.js && node -c telegramClient.js && node -c jobEngine.js",
+    "syntax": "node -c index.js && node -c telegramClient.js && node -c jobEngine.js && node -c aiChat.js && node -c resumeParser.js && node -c userData.js && node -c cache.js",
+    "prepare": "husky"
   },
-  "keywords": [],
+  "keywords": ["telegram", "bot", "jobs", "career", "ai", "ats"],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "type": "commonjs",
   "dependencies": {
     "axios": "^1.17.0",
@@ -17,7 +19,6 @@
     "dotenv": "^16.6.1",
     "mammoth": "^1.12.0",
     "node-cron": "^4.2.1",
-    "node-telegram-bot-api": "^0.67.0",
     "pdf-parse": "^2.4.5"
   }
 }
