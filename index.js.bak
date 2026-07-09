@@ -254,7 +254,7 @@ bot.on('message', async (msg) => {
 
   // ── Generic non-command message ──
   await bot.sendMessage(chatId,
-    `Hey! I'm *Paiye* — your AI career agent 🤖\n\n` +
+    `Hey! I'm *@Paiye_Bot* — your AI job match engine 🤖\n\n` +
     `💬 Type */ai* to chat with me about anything\n` +
     `🔍 Type */search* + what you want (e.g., "/search senior AI engineer remote")\n` +
     `📄 Type */resume* to upload & analyze your CV\n` +
@@ -283,77 +283,23 @@ bot.on('callback_query', async (query) => {
   };
 
   switch (data) {
-    case 'search_prompt':
+            case 'search_prompt':
       return bot.sendMessage(chatId,
         '🔍 *Search Jobs*\n\nWhat are you looking for? Examples:\n' +
         '• `senior AI engineer remote`\n' +
         '• `writing jobs`\n' +
-        '• `data annotation`\n\nJust type your search! 👇',
-        { parse_mode: 'Markdown' });
-    case 'jobs_nigeria': return cmdNigeria(fakeMsg);
-    case 'subscribe': return cmdSubscribe(fakeMsg);
-    case 'refresh': return cmdRefresh(fakeMsg);
-    case 'help': return cmdHelp(fakeMsg);
-    case 'chat_ai':
-      AI_MODE.add(chatId);
-      aiChat.reset(chatId);
-      return bot.sendMessage(chatId,
-        '💬 *AI Chat Mode activated!*\n\nSend any message and I\'ll respond.\n_Type /start or /menu to exit._',
-        { parse_mode: 'Markdown', reply_markup: chatKeyboard() });
-    case 'resume': return cmdResume(fakeMsg);
-    case 'analyze': return cmdAnalyze(fakeMsg);
-    case 'upload_resume':
-      AWAITING_RESUME.add(chatId);
-      return bot.sendMessage(chatId,
-        '📤 Send me your resume as a *PDF, DOCX, or TXT* file.\n\nJust attach and send the file!',
-        { parse_mode: 'Markdown' });
-    case 'main_menu':
-      AI_MODE.delete(chatId);
-      return cmdStart(fakeMsg);
-  }
-});
+    '*🔍 Job Search*
+' +
+    '• /search \<query\> — Search in plain English (e.g., "senior ML engineer remote")
+' +
+    '• /nigeria — Remote jobs open to Nigeria 🇳🇬
+' +
+    '• /refresh — Force re\-fetch all job sources
+' +
+    '• 💬 /ai — Chat about anything career-related
 
-// ═══════════════════════════════════════════════════════════
-// COMMAND: /start
-// ═══════════════════════════════════════════════════════════
-async function cmdStart(msg) {
-  const chatId = msg.chat.id;
-  const name = msg.from?.first_name || 'there';
-  AI_MODE.delete(chatId);
-
-  const hasResume = userData.hasResume(chatId);
-  const extras = hasResume
-    ? '\n📄 *Resume:* Stored and ready for analysis (/analyze)'
-    : '\n📄 Upload your resume for ATS analysis (/resume)';
-
-  await bot.sendMessage(chatId,
-    `Hey ${escapeMD(name)}! 👋\n\n` +
-    `I'm *Paiye — your AI Career Agent* 🔥\n\n` +
-    `I find *remote jobs* open to *Nigeria & worldwide*! 🌍\n\n` +
-    `*What I can do:*\n` +
-    `• 🔍 /search \\<query\\> — Search in plain English (e.g., \`/search senior AI engineer\`)\n` +
-    `• 📄 /resume — Upload & analyze your CV\n` +
-    `• 💬 /ai — Chat with AI assistant\n` +
-    `• 📥 /subscribe — 15 jobs daily at 7AM WAT\n` +
-    `• 🇳🇬 /nigeria — Nigeria\\-friendly remote jobs\n` +
-    `${extras}\n\n` +
-    `🎯 _Targeting \\$50/hr or \\$10k/month+ roles!_`,
-    { parse_mode: 'Markdown', reply_markup: mainKeyboard() }
-  );
-}
-
-// ═══════════════════════════════════════════════════════════
-// COMMAND: /help
-// ═══════════════════════════════════════════════════════════
-async function cmdHelp(msg) {
-  await bot.sendMessage(msg.chat.id,
-    '📘 *Paiye — Complete Guide*\n\n' +
-    '*🔍 Job Search*\n' +
-    '• /search \\<query\\> — Search in plain English (e.g., "senior ML engineer remote \\$150k")\n' +
-    '• /nigeria — Remote jobs open to Nigeria 🇳🇬\n' +
-    '• /refresh — Force re\\-fetch all job sources\n' +
-    '• 💬 /ai — Chat about anything (career, tech, casual)\n\n' +
-    '*📄 Resume & Career*\n' +
+' +
+    *📄 Resume & Career*\n' +
     '• /resume — Upload your resume for ATS analysis\n' +
     '• /analyze — Get AI feedback on your resume\n' +
     '• /interview \\<job\\-url\\> — Generate interview questions\n' +
@@ -845,31 +791,6 @@ cron.schedule('0 7 * * *', async () => {
 async function main() {
   // Start polling
   await bot.start();
-
-  // Register clean command list with Telegram
-  try {
-    await bot.setCommands([
-      { command: 'start', description: 'Main menu' },
-      { command: 'search', description: 'Search jobs in plain English' },
-      { command: 'nigeria', description: 'Remote jobs open to Nigeria' },
-      { command: 'resume', description: 'Upload your CV for ATS analysis' },
-      { command: 'analyze', description: 'Get AI feedback on your resume' },
-      { command: 'interview', description: 'Prep for an interview (send job URL)' },
-      { command: 'tailor', description: 'Tailor resume to a job (send job URL)' },
-      { command: 'profile', description: 'Set your job preferences' },
-      { command: 'ai', description: 'Chat with AI about careers & tech' },
-      { command: 'subscribe', description: 'Get 15 jobs daily at 7AM WAT' },
-      { command: 'unsubscribe', description: 'Stop daily job delivery' },
-      { command: 'feedback', description: 'Share feedback or suggestions' },
-      { command: 'refresh', description: 'Force re-fetch all job sources' },
-      { command: 'help', description: 'Show complete command guide' }
-    ]);
-    await bot.setDescription('Paiye — AI Career Agent. Search remote jobs, ATS resume analysis, interview prep, AI chat. Find your next role in tech, writing, data & more.');
-    await bot.setShortDescription('🤖 AI Career Agent — remote job search, ATS analysis, interview prep');
-    console.log('✅ Telegram command list updated');
-  } catch (err) {
-    console.log('⚠️ Could not set commands:', err.message);
-  }
 
   console.log('');
   console.log('🤖 Paiye — AI Career Agent v3 is LIVE!');

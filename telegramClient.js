@@ -236,6 +236,27 @@ class TelegramClient {
   }
 
   /**
+   * Register bot commands with Telegram (updates the / menu)
+   */
+  async setCommands(commands) {
+    return this.call('setMyCommands', { commands });
+  }
+
+  /**
+   * Set bot description (shown on bot profile)
+   */
+  async setDescription(description) {
+    return this.call('setMyDescription', { description });
+  }
+
+  /**
+   * Set bot short description (shown when adding bot)
+   */
+  async setShortDescription(shortDescription) {
+    return this.call('setMyShortDescription', { short_description: shortDescription });
+  }
+
+  /**
    * Main poll loop — gets updates and processes them
    */
   async _poll() {
