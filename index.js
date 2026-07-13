@@ -13,6 +13,8 @@ const JobCache = require('./cache');
 const AIChat = require('./aiChat');
 const userData = require('./userData');
 const { parseResume, cleanupFile, UPLOADS_DIR } = require('./resumeParser');
+const { megaSearch } = require('./jobMcp');
+const { cmdFind, cmdRemote, cmdNigeria: cmdNigeriaNew, cmdTrending } = require('./simpleCommands');
 
 // ─── Config ───
 const TOKEN = process.env.TELEGRAM_TOKEN;
@@ -220,8 +222,11 @@ bot.on('message', async (msg) => {
       case '/start': case '/menu': return cmdStart(msg);
       case '/help': return cmdHelp(msg);
       case '/ai': return cmdAI(msg);
-      case '/search': return cmdSearch(msg, args);
-      case '/nigeria': return cmdNigeria(msg);
+      case '/find': return cmdFind.call(bot, msg, args);
+      case '/search': return cmdFind.call(bot, msg, args);  // alias
+      case '/remote': return cmdRemote.call(bot, msg, args);
+      case '/nigeria': return cmdNigeriaNew.call(bot, msg, args);
+      case '/trending': return cmdTrending.call(bot, msg);
       case '/subscribe': return cmdSubscribe(msg);
       case '/unsubscribe': return cmdUnsubscribe(msg);
       case '/refresh': return cmdRefresh(msg);

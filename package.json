@@ -4,21 +4,31 @@
   "description": "Paiye — AI Career Agent. Remote job search, ATS analysis, interview prep, AI chat on Telegram.",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
-    "test": "node -c index.js && node -c telegramClient.js && node -c jobEngine.js",
-    "syntax": "node -c index.js && node -c telegramClient.js && node -c jobEngine.js && node -c aiChat.js && node -c resumeParser.js && node -c userData.js && node -c cache.js",
+    "start": "node paiye.js",
+    "start:legacy": "node index.js",
+    "test": "node -c paiye.js && node -c jobMcp.js && node -c telegramClient.js",
+    "syntax": "node -c paiye.js && node -c jobMcp.js && node -c telegramClient.js && node -c aiChat.js && node -c resumeParser.js && node -c userData.js",
     "prepare": "husky"
   },
-  "keywords": ["telegram", "bot", "jobs", "career", "ai", "ats"],
+  "keywords": [
+    "telegram",
+    "bot",
+    "jobs",
+    "career",
+    "ai",
+    "ats"
+  ],
   "author": "",
   "license": "MIT",
   "type": "commonjs",
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "axios": "^1.17.0",
     "cheerio": "^1.2.0",
     "dotenv": "^16.6.1",
     "mammoth": "^1.12.0",
     "node-cron": "^4.2.1",
-    "pdf-parse": "^2.4.5"
+    "pdf-parse": "^2.4.5",
+    "zod": "^4.4.3"
   }
 }
