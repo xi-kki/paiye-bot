@@ -196,7 +196,7 @@ async function searchFindwork(query = '', limit = 5) {
     if (query) params.set('search', query);
     
     const { data } = await fetch(`https://findwork.dev/api/jobs/?${params}`, {
-      headers: { 'Authorization': 'Token demo' },
+      headers: { 'Authorization': `Token ${process.env.FINDWORK_API_KEY}` },
     });
     const jobs = data.results || [];
     

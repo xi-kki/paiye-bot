@@ -1,6 +1,6 @@
 {
   "name": "paiye-bot",
-  "version": "3.0.0",
+  "version": "4.1.0",
   "description": "Paiye — AI Career Agent. Remote job search, ATS analysis, interview prep, AI chat on Telegram.",
   "main": "index.js",
   "scripts": {
