@@ -219,12 +219,233 @@ async function searchFindwork(query = '', limit = 5) {
 }
 
 // ═══════════════════════════════════════════════════════════
+// SOURCE 7: Jooble (global job aggregator)
+// ═══════════════════════════════════════════════════════════
+async function searchJooble(query = '', limit = 5) {
+  try {
+    const { data } = await axios.post('https://jooble.org/api/', {
+      keywords: query || 'remote',
+      location: '',
+      page: 1,
+    }, {
+      headers: { 'Content-Type': 'application/json' },
+      timeout: 12000,
+    });
+    const jobs = data.jobs || [];
+    
+    return jobs.slice(0, limit).map(j => ({
+      title: j.title || 'Untitled',
+      company: j.company || 'Unknown',
+      location: j.location || 'Remote',
+      salary: j.salary || null,
+      url: j.url || j.link,
+      source: 'Jooble',
+      description: (j.snippet || '').substring(0, 200).replace(/<[^>]*>/g, ''),
+      tags: j.type || [],
+      postedAt: j.date || null,
+      remote: (j.location || '').toLowerCase().includes('remote'),
+    }));
+  } catch (err) {
+    console.error('⚠️ Jooble error:', err.message);
+    return [];
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// SOURCE 8: Working Nomads (remote/async jobs)
+// ═══════════════════════════════════════════════════════════
+async function searchWorkingNomads(query = '', limit = 5) {
+  try {
+    const { data } = await fetch('https://www.workingnomads.com/apiexposedjobs.json');
+    let jobs = Array.isArray(data) ? data : (data.jobs || []);
+    
+    if (query) {
+      const q = query.toLowerCase();
+      jobs = jobs.filter(j =>
+        (j.title || '').toLowerCase().includes(q) ||
+        (j.company || '').toLowerCase().includes(q) ||
+        (j.tags || '').toLowerCase().includes(q) ||
+        (j.description || '').toLowerCase().includes(q)
+      );
+    }
+    
+    return jobs.slice(0, limit).map(j => ({
+      title: j.title || 'Untitled',
+      company: j.company || 'Unknown',
+      location: j.location || 'Remote',
+      salary: j.salary || null,
+      url: j.url || j.applyUrl,
+      source: 'Working Nomads',
+      description: (j.description || '').substring(0, 200).replace(/<[^>]*>/g, ''),
+      tags: (j.tags || '').split(',').map(t => t.trim()).filter(Boolean),
+      postedAt: j.datePosted || null,
+      remote: true,
+    }));
+  } catch (err) {
+    console.error('⚠️ Working Nomads error:', err.message);
+    return [];
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// SOURCE 9: The Muse (tech/startup jobs)
+// ═══════════════════════════════════════════════════════════
+async function searchTheMuse(query = '', limit = 5) {
+  try {
+    const params = new URLSearchParams();
+    if (query) params.set('query', query);
+    params.set('page', '1');
+    
+    const { data } = await fetch(`https://www.themuse.com/api/public/jobs?${params}`);
+    const jobs = data.results || [];
+    
+    return jobs.slice(0, limit).map(j => ({
+      title: j.name || 'Untitled',
+      company: (j.company && j.company.name) || 'Unknown',
+      location: (j.locations && j.locations[0] && j.locations[0].name) || 'Remote',
+      salary: j.salary || null,
+      url: j.refs && j.refs.landing_page,
+      source: 'The Muse',
+      description: (j.description || '').substring(0, 200).replace(/<[^>]*>/g, ''),
+      tags: (j.categories || []).map(c => c.name),
+      postedAt: j.publication_date || null,
+    }));
+  } catch (err) {
+    console.error('⚠️ The Muse error:', err.message);
+    return [];
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// SOURCE 10: Authentic Jobs (web/design/dev)
+// ═══════════════════════════════════════════════════════════
+async function searchAuthenticJobs(query = '', limit = 5) {
+  try {
+    const params = new URLSearchParams();
+    if (query) params.set('search', query);
+    params.set('page', '1');
+    
+    const { data } = await fetch(`https://authenticjobs.com/api/jobs.json?${params}`);
+    let jobs = data.listings || [];
+    
+    if (query) {
+      const q = query.toLowerCase();
+      jobs = jobs.filter(j =>
+        (j.title || '').toLowerCase().includes(q) ||
+        (j.company && j.company.name || '').toLowerCase().includes(q) ||
+        (j.tags || []).some(t => (t.name || '').toLowerCase().includes(q))
+      );
+    }
+    
+    return jobs.slice(0, limit).map(j => ({
+      title: j.title || 'Untitled',
+      company: (j.company && j.company.name) || 'Unknown',
+      location: (j.telecommuting && j.telecommuting === 1) ? 'Remote' : (j.location || 'Remote'),
+      salary: null,
+      url: j.apply_url || j.url,
+      source: 'Authentic Jobs',
+      description: (j.description || '').substring(0, 200).replace(/<[^>]*>/g, ''),
+      tags: (j.tags || []).map(t => t.name),
+      postedAt: j.posted_at || null,
+      remote: j.telecommuting === 1,
+    }));
+  } catch (err) {
+    console.error('⚠️ Authentic Jobs error:', err.message);
+    return [];
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// SOURCE 11: JSearch (LinkedIn jobs via RapidAPI)
+// ═══════════════════════════════════════════════════════════
+async function searchJSearch(query = '', limit = 5) {
+  try {
+    const params = new URLSearchParams();
+    params.set('query', query || 'remote');
+    params.set('page', '1');
+    params.set('num_pages', '1');
+    
+    const apiKey = process.env.RAPIDAPI_KEY;
+    if (!apiKey) {
+      console.log('ℹ️ JSearch skipped: no RAPIDAPI_KEY set');
+      return [];
+    }
+    
+    const { data } = await fetch(`https://jsearch.p.rapidapi.com/search?${params}`, {
+      headers: {
+        'X-RapidAPI-Key': apiKey,
+        'X-RapidAPI-Host': 'jsearch.p.rapidapi.com',
+      },
+    });
+    const jobs = data.data || [];
+    
+    return jobs.slice(0, limit).map(j => ({
+      title: j.job_title || 'Untitled',
+      company: j.employer_name || 'Unknown',
+      location: j.job_city ? `${j.job_city}, ${j.job_state || ''}` : (j.job_country || 'Remote'),
+      salary: j.job_min_salary ? `$${j.job_min_salary}-$${j.job_max_salary}` : null,
+      url: j.job_apply_link || j.job_google_link,
+      source: 'LinkedIn',
+      description: (j.job_description || '').substring(0, 200).replace(/<[^>]*>/g, ''),
+      tags: j.job_keywords || [],
+      postedAt: j.job_posted_at_datetime_utc || null,
+      remote: j.job_is_remote || false,
+      logo: j.employer_logo || null,
+    }));
+  } catch (err) {
+    console.error('⚠️ JSearch error:', err.message);
+    return [];
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// SOURCE 12: Adzuna (global job aggregator)
+// ═══════════════════════════════════════════════════════════
+async function searchAdzuna(query = '', limit = 5) {
+  try {
+    const appId = process.env.ADZUNA_APP_ID;
+    const appKey = process.env.ADZUNA_APP_KEY;
+    
+    if (!appId || !appKey) {
+      console.log('ℹ️ Adzuna skipped: no ADZUNA_APP_ID/KEY set');
+      return [];
+    }
+    
+    const params = new URLSearchParams();
+    params.set('app_id', appId);
+    params.set('app_key', appKey);
+    params.set('results_per_page', String(limit));
+    params.set('what', query || '');
+    params.set('content-type', 'application/json');
+    
+    const { data } = await fetch(`https://api.adzuna.com/v1/api/jobs/us/search/1?${params}`);
+    const jobs = data.results || [];
+    
+    return jobs.slice(0, limit).map(j => ({
+      title: j.title || 'Untitled',
+      company: j.company && j.company.display_name || 'Unknown',
+      location: j.location && j.location.display_name || 'Remote',
+      salary: j.salary_min ? `$${(j.salary_min/1000).toFixed(0)}k-$${(j.salary_max/1000).toFixed(0)}k` : null,
+      url: j.redirect_url,
+      source: 'Adzuna',
+      description: (j.description || '').substring(0, 200).replace(/<[^>]*>/g, ''),
+      tags: j.categories || [],
+      postedAt: j.created || null,
+      remote: false,
+    }));
+  } catch (err) {
+    console.error('⚠️ Adzuna error:', err.message);
+    return [];
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
 // MEGA SEARCH — All sources combined, deduplicated, scored
 // ═══════════════════════════════════════════════════════════
 async function megaSearch(query, options = {}) {
   const { limit = 5, sources = 'all' } = options;
   
-  console.log(`🔍 Mega-searching: "${query}" across ${sources === 'all' ? '6 sources' : sources}...`);
+  console.log(`🔍 Mega-searching: "${query}" across ${sources === 'all' ? '12 sources' : sources}...`);
   
   const searchFns = {
     himalayas: () => searchHimalayas(query, limit + 5),
@@ -233,6 +454,12 @@ async function megaSearch(query, options = {}) {
     jobicy: () => searchJobicy(query, limit + 5),
     arbeitnow: () => searchArbeitnow(query, limit + 5),
     findwork: () => searchFindwork(query, limit + 5),
+    jooble: () => searchJooble(query, limit + 5),
+    workingnomads: () => searchWorkingNomads(query, limit + 5),
+    themuse: () => searchTheMuse(query, limit + 5),
+    authenticjobs: () => searchAuthenticJobs(query, limit + 5),
+    jsearch: () => searchJSearch(query, limit + 5),
+    adzuna: () => searchAdzuna(query, limit + 5),
   };
   
   // Pick which sources to search
@@ -244,6 +471,21 @@ async function megaSearch(query, options = {}) {
   const results = await Promise.allSettled(
     toSearch.map(name => searchFns[name]())
   );
+  
+  // Track source stats
+  const sourceStats = {};
+  let totalFetched = 0;
+  
+  for (let i = 0; i < toSearch.length; i++) {
+    const name = toSearch[i];
+    const result = results[i];
+    const count = (result.status === 'fulfilled' && Array.isArray(result.value)) ? result.value.length : 0;
+    sourceStats[name] = count;
+    totalFetched += count;
+  }
+  
+  console.log(`📊 Sources: ${JSON.stringify(sourceStats)}`);
+  console.log(`📦 Total fetched: ${totalFetched}`);
   
   // Flatten and deduplicate
   const allJobs = [];
@@ -261,6 +503,8 @@ async function megaSearch(query, options = {}) {
       }
     }
   }
+  
+  console.log(`🔄 After dedup: ${allJobs.length} unique jobs`);
   
   // Score jobs based on query relevance
   const scored = allJobs.map(job => {
@@ -300,10 +544,18 @@ async function megaSearch(query, options = {}) {
 // ═══════════════════════════════════════════════════════════
 module.exports = {
   megaSearch,
+  // Free sources (no API key needed)
   searchHimalayas,
   searchRemoteOK,
   searchRemotive,
   searchJobicy,
   searchArbeitnow,
   searchFindwork,
+  searchJooble,
+  searchWorkingNomads,
+  searchAuthenticJobs,
+  // Sources with optional/free API keys
+  searchTheMuse,
+  searchJSearch,
+  searchAdzuna,
 };

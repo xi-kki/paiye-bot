@@ -1,13 +1,13 @@
 {
   "name": "paiye-bot",
-  "version": "4.1.0",
-  "description": "Paiye — AI Career Agent. Remote job search, ATS analysis, interview prep, AI chat on Telegram.",
-  "main": "index.js",
+  "version": "5.0.0",
+  "description": "🤖 Paiye — AI Career Agent. Job search, ATS analysis, interview prep, company research, application tracking, AI chat on Telegram.",
+  "main": "paiye.js",
   "scripts": {
     "start": "node paiye.js",
     "start:legacy": "node index.js",
     "test": "node -c paiye.js && node -c jobMcp.js && node -c telegramClient.js",
-    "syntax": "node -c paiye.js && node -c jobMcp.js && node -c telegramClient.js && node -c aiChat.js && node -c resumeParser.js && node -c userData.js",
+    "syntax": "node -c paiye.js && node -c jobMcp.js && node -c telegramClient.js && node -c aiChat.js && node -c resumeParser.js && node -c userData.js && node -c rateLimiter.js && node -c adminManager.js && node -c complianceManager.js && node -c companyResearch.js && node -c applicationTracker.js",
     "prepare": "husky"
   },
   "keywords": [
@@ -16,7 +16,11 @@
     "jobs",
     "career",
     "ai",
-    "ats"
+    "ats",
+    "company-research",
+    "application-tracker",
+    "rate-limiter",
+    "compliance"
   ],
   "author": "",
   "license": "MIT",
