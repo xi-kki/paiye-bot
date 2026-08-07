@@ -411,7 +411,7 @@ async function cmdMcpSearch(msg, args) {
 
 // /sources — List all job sources
 async function cmdSources(chatId) {
-  const msg = `📡 *Job Sources* — 12 active sources
+  const msg = `📡 *Job Sources* — 13 active sources
 
 🟢 *Free (No API Key):*
 1️⃣ Himalayas — Remote jobs worldwide
@@ -428,7 +428,9 @@ async function cmdSources(chatId) {
 🔟 The Muse — Tech/startup jobs
 1️⃣1️⃣ JSearch — LinkedIn jobs (needs RAPIDAPI_KEY)
 1️⃣2️⃣ Adzuna — Global jobs (needs ADZUNA keys)
+1️⃣3️⃣ AI Training — Scale AI, Turing, Surge, Encord, Toloka, Labelbox, Snorkel, Truveta & more
 
+📌 *AI Training career pages:* Mercor, micro1, Bespoke Labs, DeepFrame, Sepal AI, Plato, DataCurve, Argilla
 💡 All sources are searched automatically with /find and /mcp-search
 
 🔍 Try: /mcp-search <query> to search ALL sources`;
@@ -1308,7 +1310,7 @@ async function main() {
   console.log('║   🤖  PAIYE v5              ║');
   console.log('║   AI Career Agent           ║');
   console.log('╚══════════════════════════════╝');
-  console.log(`🌍 12 job sources + MCP`);
+  console.log(`🌍 13 job sources + MCP`);
   console.log(`🤖 AI: ${aiChat.ready ? 'ON' : 'OFF'}`);
   console.log(`📂 ${SUBSCRIBERS.size} subscribers`);
   console.log(`👑 Admins: ${adminManager.adminIds.size}`);

@@ -24,3 +24,6 @@ uploads/
 
 # Feedback & debug
 feedback.log
+
+# Windows null-device redirect artifact
+nul

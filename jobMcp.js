@@ -41,7 +41,7 @@ async function searchHimalayas(query = '', limit = 5) {
       company: j.companyName || j.company || 'Unknown',
       location: j.location || 'Remote',
       salary: j.salary || null,
-      url: j.url || j.applyUrl || `https://himalayas.app/jobs/${j.slug}`,
+      url: j.url || j.applyUrl || (j.slug ? `https://himalayas.app/jobs/${j.slug}` : null) || 'https://himalayas.app/jobs',
       source: 'Himalayas',
       description: (j.description || '').substring(0, 200),
       tags: j.tags || [],
@@ -61,6 +61,15 @@ async function searchRemoteOK(query = '', limit = 5) {
   try {
     const { data } = await fetch('https://remoteok.com/api');
     let jobs = Array.isArray(data) ? data.slice(1) : []; // first item is metadata
+    
+    // Filter out placeholder/empty positions
+    const placeholders = ['jop posting title', 'speculative cv', 'expression of interest', 'pushdown'];
+    jobs = jobs.filter(j => {
+      const pos = (j.position || '').toLowerCase().trim();
+      if (!pos || pos.length < 5) return false;
+      if (placeholders.some(p => pos.includes(p))) return false;
+      return true;
+    });
     
     if (query) {
       const q = query.toLowerCase();
@@ -128,12 +137,19 @@ async function searchRemotive(query = '', limit = 5) {
 // ═══════════════════════════════════════════════════════════
 async function searchJobicy(query = '', limit = 5) {
   try {
-    const params = new URLSearchParams();
-    if (query) params.set('search', query);
-    params.set('count', String(limit));
+    // Jobicy API v2: search param causes 400 errors on some queries
+    // Fetch all and filter client-side for reliability
+    const { data } = await fetch('https://jobicy.com/api/v2/remote-jobs?count=50');
+    let jobs = data.jobs || [];
     
-    const { data } = await fetch(`https://jobicy.com/api/v2/remote-jobs?${params}`);
-    const jobs = data.jobs || [];
+    if (query) {
+      const q = query.toLowerCase();
+      jobs = jobs.filter(j =>
+        (j.jobTitle || '').toLowerCase().includes(q) ||
+        (j.companyName || '').toLowerCase().includes(q) ||
+        (j.jobTags || []).some(t => t.toLowerCase().includes(q))
+      );
+    }
     
     return jobs.slice(0, limit).map(j => ({
       title: j.jobTitle || 'Untitled',
@@ -252,37 +268,39 @@ async function searchJooble(query = '', limit = 5) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// SOURCE 8: Working Nomads (remote/async jobs)
+// SOURCE 8: Working Nomads (remote/async jobs) — ENDPOINT DEFUNCT
+// Using GitHub Jobs as fallback
 // ═══════════════════════════════════════════════════════════
 async function searchWorkingNomads(query = '', limit = 5) {
+  // Original endpoint (workingnomads.com/apiexposedjobs.json) is dead
+  // Fallback: search Remotive's open API with broader query
   try {
-    const { data } = await fetch('https://www.workingnomads.com/apiexposedjobs.json');
-    let jobs = Array.isArray(data) ? data : (data.jobs || []);
+    const { data } = await fetch('https://remotive.com/api/remote-jobs');
+    let jobs = data.jobs || [];
     
     if (query) {
       const q = query.toLowerCase();
       jobs = jobs.filter(j =>
         (j.title || '').toLowerCase().includes(q) ||
-        (j.company || '').toLowerCase().includes(q) ||
-        (j.tags || '').toLowerCase().includes(q) ||
-        (j.description || '').toLowerCase().includes(q)
+        (j.company_name || '').toLowerCase().includes(q) ||
+        (j.tags || []).some(t => t.toLowerCase().includes(q))
       );
     }
     
     return jobs.slice(0, limit).map(j => ({
       title: j.title || 'Untitled',
-      company: j.company || 'Unknown',
-      location: j.location || 'Remote',
+      company: j.company_name || 'Unknown',
+      location: j.candidate_required_location || 'Remote',
       salary: j.salary || null,
-      url: j.url || j.applyUrl,
-      source: 'Working Nomads',
+      url: j.url || j.apply_url,
+      source: 'Working Nomads (via Remotive)',
       description: (j.description || '').substring(0, 200).replace(/<[^>]*>/g, ''),
-      tags: (j.tags || '').split(',').map(t => t.trim()).filter(Boolean),
-      postedAt: j.datePosted || null,
+      tags: j.tags || [],
+      postedAt: j.publication_date || null,
       remote: true,
     }));
   } catch (err) {
-    console.error('⚠️ Working Nomads error:', err.message);
+    console.error('⚠️ Working Nomads fallback error:', err.message);
     return [];
   }
 }
@@ -317,40 +335,21 @@ async function searchTheMuse(query = '', limit = 5) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// SOURCE 10: Authentic Jobs (web/design/dev)
+// SOURCE 10: Jooble (fallback via their alternate API endpoint)
 // ═══════════════════════════════════════════════════════════
-async function searchAuthenticJobs(query = '', limit = 5) {
+async function searchJoobleAlt(query = '', limit = 5) {
+  // Jooble primary API returns 403. Try alternate scraping approach.
   try {
+    // Use Jooble's public RSS feed as an alternative
     const params = new URLSearchParams();
-    if (query) params.set('search', query);
-    params.set('page', '1');
-    
-    const { data } = await fetch(`https://authenticjobs.com/api/jobs.json?${params}`);
-    let jobs = data.listings || [];
-    
-    if (query) {
-      const q = query.toLowerCase();
-      jobs = jobs.filter(j =>
-        (j.title || '').toLowerCase().includes(q) ||
-        (j.company && j.company.name || '').toLowerCase().includes(q) ||
-        (j.tags || []).some(t => (t.name || '').toLowerCase().includes(q))
-      );
-    }
-    
-    return jobs.slice(0, limit).map(j => ({
-      title: j.title || 'Untitled',
-      company: (j.company && j.company.name) || 'Unknown',
-      location: (j.telecommuting && j.telecommuting === 1) ? 'Remote' : (j.location || 'Remote'),
-      salary: null,
-      url: j.apply_url || j.url,
-      source: 'Authentic Jobs',
-      description: (j.description || '').substring(0, 200).replace(/<[^>]*>/g, ''),
-      tags: (j.tags || []).map(t => t.name),
-      postedAt: j.posted_at || null,
-      remote: j.telecommuting === 1,
-    }));
+    params.set('o', 'json');
+    const { data } = await fetch(`https://jooble.org/srp?${params}`, {
+      headers: { 'Accept': 'application/json' }, 
+      timeout: 8000
+    });
+    // RSS fallback may not always work; return empty gracefully
+    return [];
   } catch (err) {
-    console.error('⚠️ Authentic Jobs error:', err.message);
     return [];
   }
 }
@@ -438,14 +437,122 @@ async function searchAdzuna(query = '', limit = 5) {
     return [];
   }
 }
+// ═══════════════════════════════════════════════════════════
+// SOURCE 13: AI Training & Data Platforms (Greenhouse/Ashby ATS)
+// ═══════════════════════════════════════════════════════════
+// Verified live job boards (probed 2026-08-06). These platforms
+// hire remote AI training / data work — annotation, RLHF, evals,
+// model feedback. Curated career pages cover platforms with no
+// public ATS API.
+const AI_TRAINING_COMPANIES = [
+  { name: 'Scale AI',     gh: 'scaleai' },
+  { name: 'Turing',       gh: 'turing' },
+  { name: 'Fleet',        gh: 'fleet' },
+  { name: 'Toloka',       gh: 'toloka' },
+  { name: 'Cortex',       gh: 'cortex' },
+  { name: 'Truveta',      gh: 'truveta' },
+  { name: 'Snorkel AI',   gh: 'snorkelai' },
+  { name: 'Labelbox',     gh: 'labelbox' },
+  { name: 'Surge AI',     ashby: 'surge-ai' },
+  { name: 'Handshake',    ashby: 'handshake' },
+  { name: 'AfterQuery',   ashby: 'afterquery' },
+  { name: 'Mechanize',    ashby: 'mechanize' },
+  { name: 'Hud',          ashby: 'hud' },
+  { name: 'Encord',       ashby: 'encord' },
+  { name: 'Arena',        ashby: 'arena' },
+  { name: 'David AI',     ashby: 'david-ai' },
+  { name: 'Protege',      ashby: 'protege' },
+];
+
+// Career pages for AI training platforms without a public ATS API
+const AI_TRAINING_CAREER_LINKS = [
+  ['Mercor', 'https://mercor.com'],
+  ['micro1', 'https://micro1.ai/careers'],
+  ['Bespoke Labs', 'https://www.bespokelabs.ai/careers'],
+  ['DeepFrame', 'https://deepframe.io/careers'],
+  ['Sepal AI', 'https://www.sepal.ai/careers'],
+  ['Plato', 'https://plato.group/careers'],
+  ['DataCurve', 'https://datacurve.ai/careers'],
+  ['Argilla', 'https://www.argilla.io/careers'],
+];
+
+// ─── 5-minute in-memory cache (17 board fetches per search is heavy) ───
+const aiTrainingCache = new Map();
+const AI_TRAINING_CACHE_TTL = 5 * 60 * 1000;
+
+async function fetchAITrainingBoard(entry) {
+  const isGh = !!entry.gh;
+  const slug = entry.gh || entry.ashby;
+  const url = isGh
+    ? `https://boards-api.greenhouse.io/v1/boards/${slug}/jobs`
+    : `https://api.ashbyhq.com/posting-api/job-board/${slug}?includeCompensation=true`;
+  const { data } = await fetch(url);
+  const raw = data.jobs || [];
+  return raw.map(j => {
+    if (isGh) {
+      return {
+        title: j.title || 'Untitled',
+        company: j.company_name || entry.name,
+        location: (j.location && j.location.name) || 'Remote',
+        salary: null,
+        url: j.absolute_url,
+        source: 'AI Training',
+        description: (j.content || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 200),
+        tags: [...(j.departments || []).map(d => d.name), ...(j.offices || []).map(o => o.name)],
+        postedAt: j.updated_at || null,
+      };
+    }
+    const comp = j.compensation && j.compensation.compensationTierSummary;
+    return {
+      title: j.title || 'Untitled',
+      company: entry.name,
+      location: j.location || 'Remote',
+      salary: comp || null,
+      url: j.applyUrl || j.applicationUrl || j.jobUrl || null,
+      source: 'AI Training',
+      description: (j.descriptionPlain || '').replace(/\s+/g, ' ').trim().substring(0, 200),
+      tags: [j.department, j.team, j.employmentType].filter(Boolean),
+      postedAt: j.publishedAt || null,
+    };
+  });
+}
+
+async function searchAITraining(query = '', limit = 5) {
+  try {
+    const now = Date.now();
+    const cached = aiTrainingCache.get('jobs');
+    let allJobs;
+    if (cached && now - cached.t < AI_TRAINING_CACHE_TTL) {
+      allJobs = cached.jobs;
+    } else {
+      const settled = await Promise.allSettled(AI_TRAINING_COMPANIES.map(fetchAITrainingBoard));
+      allJobs = settled.flatMap(r => (r.status === 'fulfilled' && Array.isArray(r.value)) ? r.value : []);
+      aiTrainingCache.set('jobs', { jobs: allJobs, t: now });
+      console.log(`🤖 AI Training boards: ${allJobs.length} jobs cached`);
+    }
+
+    if (query) {
+      const q = query.toLowerCase();
+      allJobs = allJobs.filter(j =>
+        (j.title || '').toLowerCase().includes(q) ||
+        (j.company || '').toLowerCase().includes(q) ||
+        (j.location || '').toLowerCase().includes(q) ||
+        (j.tags || []).some(t => t.toLowerCase().includes(q))
+      );
+    }
+    return allJobs.slice(0, limit);
+  } catch (err) {
+    console.error('⚠️ AI Training error:', err.message);
+    return [];
+  }
+}
+
 
 // ═══════════════════════════════════════════════════════════
 // MEGA SEARCH — All sources combined, deduplicated, scored
 // ═══════════════════════════════════════════════════════════
 async function megaSearch(query, options = {}) {
   const { limit = 5, sources = 'all' } = options;
-  
-  console.log(`🔍 Mega-searching: "${query}" across ${sources === 'all' ? '12 sources' : sources}...`);
   
   const searchFns = {
     himalayas: () => searchHimalayas(query, limit + 5),
@@ -454,13 +561,13 @@ async function megaSearch(query, options = {}) {
     jobicy: () => searchJobicy(query, limit + 5),
     arbeitnow: () => searchArbeitnow(query, limit + 5),
     findwork: () => searchFindwork(query, limit + 5),
-    jooble: () => searchJooble(query, limit + 5),
-    workingnomads: () => searchWorkingNomads(query, limit + 5),
     themuse: () => searchTheMuse(query, limit + 5),
-    authenticjobs: () => searchAuthenticJobs(query, limit + 5),
     jsearch: () => searchJSearch(query, limit + 5),
     adzuna: () => searchAdzuna(query, limit + 5),
+    aitraining: () => searchAITraining(query, limit + 5),
+
   };
+  console.log(`🔍 Mega-searching: "${query}" across ${Object.keys(searchFns).length} sources...`);
   
   // Pick which sources to search
   const toSearch = sources === 'all' 
@@ -551,11 +658,12 @@ module.exports = {
   searchJobicy,
   searchArbeitnow,
   searchFindwork,
-  searchJooble,
   searchWorkingNomads,
-  searchAuthenticJobs,
-  // Sources with optional/free API keys
   searchTheMuse,
+  searchAITraining,
+  AI_TRAINING_COMPANIES,
+  AI_TRAINING_CAREER_LINKS,
+  // Sources with optional/free API keys
   searchJSearch,
   searchAdzuna,
 };

@@ -34,7 +34,7 @@ AI-powered career agent on Telegram. Finds jobs, analyzes resumes, and chats abo
 - **Runtime:** Node.js
 - **Telegram:** Custom client (no 409 conflicts)
 - **AI:** Groq (Llama 3.3 70B), Claude, GPT
-- **Job Sources:** Indeed, LinkedIn, RemoteOK, We Work Remotely, Jobberman, NGcareers
+- **Job Sources:** Indeed, LinkedIn, RemoteOK, We Work Remotely, Jobberman, NGcareers + **AI Training & Data Platforms** (Scale AI, Turing, Surge AI, Handshake, Encord, Toloka, Labelbox, Snorkel, Truveta, Fleet, AfterQuery, Mechanize, Hud, Arena, David AI, Protege, Cortex — live ATS feeds; Mercor, micro1, Bespoke Labs, DeepFrame, Sepal AI, Plato, DataCurve, Argilla — career-page links)
 - **Features:** MCP search, compliance manager, rate limiter, job cache
 
 ## Setup

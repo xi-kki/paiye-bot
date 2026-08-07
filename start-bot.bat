@@ -1,23 +1,42 @@
 @echo off
-title @Paiye_Bot — Job Match Engine v3
+title @Paiye_Bot v5 — AI Career Agent
 cd /d "C:\Users\HP\telegram-bot"
 
-:: Kill stale bot instances
-echo [1/3] Killing stale bot instances...
-wmic process where "name='node.exe' and commandline like '%%index.js%%'" delete >nul 2>&1
-timeout /t 2 /nobreak >nul
-
-:: Clean Telegram connection via .env token
-echo [2/3] Cleaning Telegram connection...
-for /f "tokens=2 delims==" %%a in ('findstr "TELEGRAM_TOKEN" .env') do set "TOKEN=%%a"
-if not "%TOKEN%"=="" (
-  node -e "const https=require('https');const t='%TOKEN%';const d=JSON.stringify({drop_pending_updates:true});const r=https.request('https://api.telegram.org/bot'+t+'/deleteWebhook',{method:'POST',headers:{'Content-Type':'application/json','Content-Length':d.length}},()=>{});r.write(d);r.end();setTimeout(()=>process.exit(),3000);"
+:: Check if .env exists with a token
+findstr /B "TELEGRAM_TOKEN=" .env >nul 2>&1
+if errorlevel 1 (
+    echo ❌ No TELEGRAM_TOKEN found in .env
+    echo    Run setup first: node setup.js
+    pause
+    exit /b 1
 )
 
-:: Start bot
-echo [3/3] Starting @Paiye_Bot...
-start /B /MIN "" node index.js > output.log 2>&1
-
-echo Bot started! Check output.log for status.
 echo.
-echo To stop: wmic process where "name='node.exe' and commandline like '%%index.js%%'" delete
+echo ╔══════════════════════════════╗
+echo ║   🤖  PAIYE v5             ║
+echo ║   AI Career Agent          ║
+echo ╚══════════════════════════════╝
+echo.
+
+:: Check if PM2 is available
+where pm2 >nul 2>&1
+if errorlevel 1 (
+    echo PM2 not found — starting directly...
+    echo.
+    start /B /MIN "" node paiye.js > logs\output.log 2>&1
+    echo ✅ Bot started in background!
+    echo    Check logs: type logs\output.log
+) else (
+    echo PM2 found — managing process with PM2...
+    pm2 start ecosystem.config.js --update-env 2>&1
+    pm2 save
+    echo.
+    echo ✅ Bot started with PM2!
+    echo    Status: pm2 status
+    echo    Logs:   pm2 logs paiye-bot
+    echo    Stop:   pm2 stop paiye-bot
+)
+
+echo.
+echo Bot started at %date% %time%
+echo.
