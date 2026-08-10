@@ -806,6 +806,7 @@ async function megaSearch(query, options = {}) {
     aitraining: () => searchAITraining(query, limit + 5),
     jobzilla: () => searchJobzilla(query, limit + 5),
     myjobmag: () => searchMyJobMag(query, limit + 5),
+    internships: () => searchInternships(query, limit + 5),
 
   };
   console.log(`🔍 Mega-searching: "${query}" across ${Object.keys(searchFns).length} sources...`);
@@ -891,6 +892,76 @@ async function megaSearch(query, options = {}) {
 }
 
 // ═══════════════════════════════════════════════════════════
+// SOURCE 13: Internships API (Fantastic.jobs — LinkedIn/Wellfound/YC)
+// ═══════════════════════════════════════════════════════════
+// Field names per developer.fantastic.jobs (active-jb): id, title, organization,
+// locations/locations_derived, description, date_posted, date_created,
+// salary_min/max/currency/period (+ ai_* variants), apply_url, source.
+// Endpoint is fixed: /active-jb-7d = rolling 7-day window, ~45 min delay.
+function formatInternshipLocation(j) {
+  const d = j.locations_derived || j.locations_derived_structured;
+  if (d && typeof d === 'object') {
+    const parts = [d.city, d.state, d.country].filter(Boolean);
+    if (parts.length) return parts.join(', ');
+  }
+  if (Array.isArray(j.locations) && j.locations.length) return j.locations.join(', ');
+  return j.location || 'Remote';
+}
+
+function formatInternshipSalary(j) {
+  const min = j.salary_min ?? j.ai_salary_min ?? j.min_salary;
+  const max = j.salary_max ?? j.ai_salary_max ?? j.max_salary;
+  const cur = j.salary_currency || j.ai_salary_currency || '';
+  const period = j.salary_period || j.ai_salary_period || '';
+  if (!min && !max) return null;
+  const both = min && max && min !== max;
+  return `${cur}${min || '?'}${both ? '-' + cur + max : max ? cur + max : ''}${period ? ' ' + period : ''}`;
+}
+
+async function searchInternships(query = '', limit = 5) {
+  try {
+    const apiKey = process.env.RAPIDAPI_KEY;
+    if (!apiKey) {
+      console.log('ℹ️ Internships skipped: no RAPIDAPI_KEY set');
+      return [];
+    }
+
+    const params = new URLSearchParams();
+    params.set('time_frame', '7d');
+    params.set('limit', String(Math.min(limit + 5, 100)));
+    params.set('offset', '0');
+    if (query) params.set('title', query);
+    params.set('description_format', 'text');
+
+    const { data } = await fetch(`https://internships-api.p.rapidapi.com/active-jb-7d?${params}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        'X-RapidAPI-Key': apiKey,
+        'X-RapidAPI-Host': 'internships-api.p.rapidapi.com',
+      },
+    });
+    const jobs = Array.isArray(data) ? data : (data && data.data) || [];
+
+    return jobs.slice(0, limit).map(j => ({
+      title: j.title || j.job_title || 'Untitled',
+      company: j.organization || j.employer_name || 'Unknown',
+      location: formatInternshipLocation(j),
+      salary: formatInternshipSalary(j),
+      url: j.apply_url || j.job_url || j.listing_url || j.url || '',
+      source: 'Internships',
+      description: String(j.description || '').substring(0, 300),
+      tags: ['internship', j.seniority, j.ai_work_arrangement].filter(Boolean),
+      postedAt: j.date_posted || j.date_created || null,
+      remote: String(j.ai_work_arrangement || '').toLowerCase().includes('remote'),
+      logo: j.organization_logo || null,
+    }));
+  } catch (err) {
+    console.error('⚠️ Internships error:', err.message);
+    return [];
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
 // EXPORTS
 // ═══════════════════════════════════════════════════════════
 module.exports = {
@@ -913,4 +984,5 @@ module.exports = {
   // Sources with optional/free API keys
   searchJSearch,
   searchAdzuna,
+  searchInternships,
 };
