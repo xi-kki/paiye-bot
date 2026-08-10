@@ -139,24 +139,28 @@ async function cmdRemote(msg, args) {
 async function cmdNigeria(msg, args) {
   const chatId = msg.chat.id;
   const bot = this;
-  const query = args || 'remote africa';
+  const query = args || '';
   
   const sent = await bot.sendMessage(chatId, '🇳🇬 Finding Nigeria-friendly jobs...', { parse_mode: 'Markdown' });
   bot.sendChatAction(chatId, 'typing');
   
   try {
-    const jobs = await megaSearch(query, { limit: DEFAULT_LIMIT });
+    // Empty query → every source returns its latest jobs, then we rank
+    // Nigerian-located ones (Jobzilla, MyJobMag) first
+    const jobs = await megaSearch(query, { limit: DEFAULT_LIMIT + 10 });
     
-    // Filter for Africa-friendly
-    const nigeriaJobs = jobs.filter(j => {
+    const isNigeriaFriendly = (j) => {
       const loc = (j.location || '').toLowerCase();
-      return loc.includes('remote') || loc.includes('africa') || 
-             loc.includes('nigeria') || loc.includes('worldwide') ||
+      return loc.includes('nigeria') || loc.includes('africa') ||
+             loc.includes('remote') || loc.includes('worldwide') ||
              !loc.includes('only');
-    });
+    };
     
-    const displayJobs = nigeriaJobs.length > 0 ? nigeriaJobs : jobs;
+    // Nigerian-located jobs first, then global/remote-friendly
+    const nigeriaJobs = jobs.filter(j => (j.location || '').toLowerCase().includes('nigeria'));
+    const otherFriendly = jobs.filter(j => !(j.location || '').toLowerCase().includes('nigeria') && isNigeriaFriendly(j));
     
+    const displayJobs = [...nigeriaJobs, ...otherFriendly].slice(0, DEFAULT_LIMIT);
     if (displayJobs.length === 0) {
       return bot.editMessageText(chatId, sent.result?.message_id,
         '😕 No Nigeria-friendly jobs found. Try `/find <your skill>`',
@@ -165,16 +169,12 @@ async function cmdNigeria(msg, args) {
     }
     
     let message = '🇳🇬 *Nigeria-Friendly Jobs*\n\n';
-    displayJobs.slice(0, DEFAULT_LIMIT).forEach((job, i) => {
+    displayJobs.forEach((job, i) => {
       message += formatJob(job, i + 1) + '\n\n';
     });
     
-    message += '💡 _These are open to applicants worldwide including Nigeria_';
+    message += '💡 _Nigerian boards (Jobzilla, MyJobMag) + remote/global roles open to Nigeria_';
     
-    await bot.editMessageText(chatId, sent.result?.message_id, message, {
-      parse_mode: 'Markdown',
-      disable_web_page_preview: true,
-    });
   } catch (err) {
     console.error('❌ /nigeria error:', err.message);
     await bot.editMessageText(chatId, sent.result?.message_id,

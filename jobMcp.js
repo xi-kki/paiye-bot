@@ -3,6 +3,7 @@
 // ============================================================
 
 const axios = require('axios');
+const cheerio = require('cheerio');
 
 // ─── Rotating User-Agent ───
 const USER_AGENTS = [
@@ -547,6 +548,244 @@ async function searchAITraining(query = '', limit = 5) {
   }
 }
 
+// ═══════════════════════════════════════════════════════════
+// SOURCE: Jobzilla Nigeria — Nigerian job board, 60+ categories
+// (RSS feed + category pages verified live 2026-08-10)
+// ═══════════════════════════════════════════════════════════
+
+// Keyword → Jobzilla category slug (slugs from the site's own category index)
+const JOBZILLA_CATEGORIES = {
+  'human resources': 'recruitment-consulting-company-jobs',
+  'hr ': 'recruitment-consulting-company-jobs',
+  ' hr': 'recruitment-consulting-company-jobs',
+  recruitment: 'recruitment-consulting-company-jobs',
+  accounting: 'accounting-audit',
+  audit: 'accounting-audit',
+  banking: 'business-and-finance-jobs',
+  finance: 'business-and-finance-jobs',
+  'customer service': 'customer-service',
+  'customer care': 'customer-service',
+  'supply chain': 'procurement-supply-chain',
+  procurement: 'procurement-supply-chain',
+  'real estate': 'real-estate-jobs',
+  'graduate trainee': 'trainee-internship',
+  trainee: 'trainee-internship',
+  intern: 'trainee-internship',
+  internship: 'trainee-internship',
+  admin: 'administrative-office-operations',
+  administrative: 'administrative-office-operations',
+  secretary: 'administrative-office-operations',
+  nursing: 'nursing-jobs',
+  medical: 'medical-healthcare-jobs',
+  health: 'medical-healthcare-jobs',
+  doctor: 'medical-healthcare-jobs',
+  legal: 'legal-jobs',
+  law: 'legal-jobs',
+  engineering: 'engineering',
+  software: 'software-web-development',
+  developer: 'software-web-development',
+  programming: 'software-web-development',
+  data: 'data-research',
+  analytics: 'data-research',
+  'machine learning': 'data-research',
+  sales: 'sales-business-development-jobs',
+  marketing: 'marketing-public-relations',
+  teaching: 'education-and-training-jobs',
+  education: 'education-and-training-jobs',
+  lecturer: 'education-and-training-jobs',
+  teacher: 'education-and-training-jobs',
+  oil: 'oil-and-gas-jobs',
+  gas: 'oil-and-gas-jobs',
+  pharmaceutical: 'pharmaceutical-jobs',
+  pharma: 'pharmaceutical-jobs',
+  logistics: 'transport-logistics-jobs',
+  transport: 'transport-logistics-jobs',
+  hospitality: 'hospitality-tourism',
+  government: 'government-jobs',
+  ngo: 'ngo-jobs',
+  nonprofit: 'ngo-jobs',
+  design: 'creative-design',
+  designer: 'creative-design',
+  ui: 'creative-design',
+  ux: 'creative-design',
+  'product manager': 'product-project-management',
+  'project manager': 'product-project-management',
+  construction: 'building-and-construction-jobs',
+  mining: 'mining',
+  maritime: 'maritime-jobs',
+  shipping: 'maritime-jobs',
+  media: 'media-and-publishing-jobs',
+  journalism: 'media-and-publishing-jobs',
+  consulting: 'consulting',
+  security: 'security-jobs',
+  driver: 'driving-services',
+  driving: 'driving-services',
+  manufacturing: 'manufacturing-and-industrial-jobs',
+  agriculture: 'agricultural-agro-allied',
+  aviation: 'aviation-jobs',
+  telecom: 'it-and-telecoms-jobs',
+  research: 'research-academia',
+};
+
+// Titles that are ads/junk, not real jobs (seen on Jobzilla)
+const JOBZILLA_JUNK = /opportunity for every nigerian|hiv|dating|click here|whatsapp/i;
+
+// Parse Jobzilla's relative dates: "on Jul 17, 2026" | "4 hours ago" | "on Aug 7, 2026"
+function parseJobzillaDate(dateText) {
+  const t = (dateText || '').replace(/[⏲\s]+/g, ' ').trim();
+  const dated = t.match(/on\s+(\w{3})\s+(\d{1,2}),?\s*(\d{4})/i);
+  if (dated) return new Date(`${dated[1]} ${dated[2]}, ${dated[3]}`).toISOString();
+  const hours = t.match(/(\d+)\s+hours?\s+ago/i);
+  if (hours) return new Date(Date.now() - parseInt(hours[1]) * 3600e3).toISOString();
+  const mins = t.match(/(\d+)\s+min(?:ute)?s?\s+ago/i);
+  if (mins) return new Date(Date.now() - parseInt(mins[1]) * 60e3).toISOString();
+  const days = t.match(/(\d+)\s+days?\s+ago/i);
+  if (days) return new Date(Date.now() - parseInt(days[1]) * 86400e3).toISOString();
+  return null;
+}
+
+// "Human Resources Manager (School) at Don Quester Consulting Limited" → company
+function companyFromTitle(title) {
+  const at = title.split(' at ');
+  if (at.length > 1) return at.pop().replace(/\s*-\s*\d+\s*Openings?$/i, '').trim();
+  const dash = title.split(' - ');
+  if (dash.length > 1) {
+    const last = dash.pop().trim();
+    if (last.length < 60) return last;
+  }
+  return null;
+}
+
+async function searchJobzilla(query = '', limit = 5) {
+  try {
+    const q = (query || '').toLowerCase().trim();
+    const jobs = [];
+
+    // 1) Map the query to a Jobzilla category page (fresh, query-relevant)
+    let categorySlug = null;
+    if (q) {
+      for (const [key, slug] of Object.entries(JOBZILLA_CATEGORIES)) {
+        if (q.includes(key)) { categorySlug = slug; break; }
+      }
+    }
+
+    if (categorySlug) {
+      const { data } = await fetch(`https://www.jobzilla.ng/category/${categorySlug}`);
+      const $ = cheerio.load(data);
+      $('div.card-body.content').each((_, el) => {
+        const $card = $(el);
+        const $a = $card.find('h2 a');
+        const title = $a.text().trim();
+        const href = $a.attr('href') || '';
+        if (!title || !href.includes('/jobs/')) return;
+        if (JOBZILLA_JUNK.test(title)) return;
+        jobs.push({
+          title,
+          company: companyFromTitle(title) || 'Jobzilla',
+          location: 'Nigeria',
+          salary: null,
+          url: href.startsWith('http') ? href : `https://www.jobzilla.ng${href}`,
+          source: 'Jobzilla',
+          description: $card.find('p.mb-0').text().trim().substring(0, 200),
+          tags: [categorySlug.replace(/-/g, ' ')],
+          postedAt: parseJobzillaDate($card.find('span.comments').text()),
+        });
+      });
+    }
+
+    // 2) Fallback: main RSS feed filtered by the query
+    if (jobs.length === 0) {
+      const { data } = await fetch('https://www.jobzilla.ng/feed');
+      const itemRegex = /<item>([\s\S]*?)<\/item>/gi;
+      let m;
+      while ((m = itemRegex.exec(data)) !== null) {
+        const item = m[1];
+        const title = ((item.match(/<title><!\[CDATA\[([\s\S]*?)\]\]><\/title>/i) || [])[1] ||
+                       (item.match(/<title>([^<]*)<\/title>/i) || [])[1] || '').trim();
+        const link = ((item.match(/<link>([^<]*)<\/link>/i) || [])[1] || '').trim();
+        const desc = ((item.match(/<description><!\[CDATA\[([\s\S]*?)\]\]><\/description>/i) || [])[1] ||
+                      (item.match(/<description>([^<]*)<\/description>/i) || [])[1] || '')
+                        .replace(/<[^>]*>/g, '').trim();
+        if (!title || !link || JOBZILLA_JUNK.test(title)) continue;
+        if (q && !`${title} ${desc}`.toLowerCase().includes(q)) continue;
+        jobs.push({
+          title,
+          company: companyFromTitle(title) || 'Jobzilla',
+          location: 'Nigeria',
+          salary: null,
+          url: link,
+          source: 'Jobzilla',
+          description: desc.substring(0, 200),
+          tags: ['nigeria'],
+          postedAt: parseJobzillaDate((item.match(/<pubDate>([^<]*)<\/pubDate>/i) || [])[1] || ''),
+        });
+      }
+    }
+
+    return jobs.slice(0, limit);
+  } catch (err) {
+    console.error('⚠️ Jobzilla error:', err.message);
+    return [];
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// SOURCE: MyJobMag Nigeria — largest Nigerian job board, all fields
+// (search page verified live 2026-08-10: /search/jobs?q=)
+// ═══════════════════════════════════════════════════════════
+async function searchMyJobMag(query = '', limit = 5) {
+  try {
+    const params = new URLSearchParams();
+    if (query) params.set('q', query);
+
+    const { data } = await fetch(`https://www.myjobmag.com/search/jobs?${params}`);
+    const $ = cheerio.load(data);
+    const jobs = [];
+
+    $('li.job-list-li').each((_, el) => {
+      const $li = $(el);
+      const $a = $li.find('h2 a');
+      const title = $a.text().trim();
+      const href = $a.attr('href') || '';
+      if (!title || !href.includes('/job/')) return;
+
+      // Company from the logo block when present, else parse from title
+      let company = $li.find('li.job-logo a img').attr('alt') || '';
+      company = company.replace(/&#\d+;/g, '').trim() || companyFromTitle(title) || 'MyJobMag';
+
+      // "08 August" (day + month, no year) → this year
+      let postedAt = null;
+      const dateText = $li.find('li#job-date').text().trim();
+      const dm = dateText.match(/^(\d{1,2})\s+(\w+)$/);
+      if (dm) {
+        let d = new Date(`${dm[2]} ${dm[1]}, ${new Date().getFullYear()}`);
+        if (d > new Date()) d = new Date(d.getFullYear() - 1, d.getMonth(), d.getDate());
+        postedAt = d.toISOString();
+      }
+
+      const locationText = `${title} ${$li.find('li.job-desc').text()}`.toLowerCase();
+      const location = locationText.includes('remote') ? 'Remote' : 'Nigeria';
+
+      jobs.push({
+        title,
+        company,
+        location,
+        salary: $li.find('span.job-salary').text().trim() || null,
+        url: href.startsWith('http') ? href : `https://www.myjobmag.com${href}`,
+        source: 'MyJobMag',
+        description: $li.find('li.job-desc').text().trim().substring(0, 200),
+        tags: ['nigeria'],
+        postedAt,
+      });
+    });
+
+    return jobs.slice(0, limit);
+  } catch (err) {
+    console.error('⚠️ MyJobMag error:', err.message);
+    return [];
+  }
+}
+
 
 // ═══════════════════════════════════════════════════════════
 // MEGA SEARCH — All sources combined, deduplicated, scored
@@ -565,6 +804,8 @@ async function megaSearch(query, options = {}) {
     jsearch: () => searchJSearch(query, limit + 5),
     adzuna: () => searchAdzuna(query, limit + 5),
     aitraining: () => searchAITraining(query, limit + 5),
+    jobzilla: () => searchJobzilla(query, limit + 5),
+    myjobmag: () => searchMyJobMag(query, limit + 5),
 
   };
   console.log(`🔍 Mega-searching: "${query}" across ${Object.keys(searchFns).length} sources...`);
@@ -619,7 +860,7 @@ async function megaSearch(query, options = {}) {
     const q = query.toLowerCase();
     const title = (job.title || '').toLowerCase();
     const company = (job.company || '').toLowerCase();
-    const tags = (job.tags || []).map(t => t.toLowerCase()).join(' ');
+    const tags = (Array.isArray(job.tags) ? job.tags : String(job.tags || '').split(',')).map(t => t.toLowerCase()).join(' ');
     const desc = (job.description || '').toLowerCase();
     
     // Title match (highest weight)
@@ -634,6 +875,9 @@ async function megaSearch(query, options = {}) {
     
     // Salary bonus
     if (job.salary) score += 5;
+    
+    // Location match (e.g. /find accountant lagos, /nigeria)
+    if (q.split(' ').some(w => (job.location || '').toLowerCase().includes(w))) score += 10;
     
     // Remote bonus
     if (job.remote || (job.location || '').toLowerCase().includes('remote')) score += 5;
@@ -661,6 +905,9 @@ module.exports = {
   searchWorkingNomads,
   searchTheMuse,
   searchAITraining,
+  // Nigerian sources
+  searchJobzilla,
+  searchMyJobMag,
   AI_TRAINING_COMPANIES,
   AI_TRAINING_CAREER_LINKS,
   // Sources with optional/free API keys
