@@ -27,6 +27,8 @@ jobs:
       GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
       GROQ_MODEL: ${{ secrets.GROQ_MODEL }}
       FINDWORK_API_KEY: ${{ secrets.FINDWORK_API_KEY }}
+      RAPIDAPI_KEY: ${{ secrets.RAPIDAPI_KEY }}
+      ADMIN_IDS: ${{ secrets.ADMIN_IDS }}
       GH_PAT: ${{ secrets.GH_PAT }}
     steps:
       - uses: actions/checkout@v4
@@ -43,7 +45,8 @@ jobs:
           printf 'GROQ_API_KEY=%s\n' "$GROQ_API_KEY" >> .env
           printf 'GROQ_MODEL=%s\n' "$GROQ_MODEL" >> .env
           printf 'FINDWORK_API_KEY=%s\n' "$FINDWORK_API_KEY" >> .env
-          printf 'ADMIN_IDS=8573671982\n' >> .env
+          printf 'RAPIDAPI_KEY=%s\n' "$RAPIDAPI_KEY" >> .env
+          printf 'ADMIN_IDS=%s\n' "$ADMIN_IDS" >> .env
       - name: Run bot (poll + state sync loop)
         run: bash run-bot.sh
         shell: bash

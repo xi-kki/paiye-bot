@@ -6,7 +6,7 @@
 
 require('dotenv').config();
 const TelegramClient = require('./telegramClient');
-const { megaSearch } = require('./jobMcp');
+const { megaSearch, searchInternships } = require('./jobMcp');
 const { qaPipeline, extractSkillsFromResume, generateAtsAdvice, getJobAge } = require('./jobQa');
 const AIChat = require('./aiChat');
 const userData = require('./userData');
@@ -103,7 +103,7 @@ function mainKb() {
   return {
     inline_keyboard: [
       [{ text: '🔍 Find', callback_data: 'find_prompt' }, { text: '🌍 Remote', callback_data: 'remote' }],
-      [{ text: '🇳🇬 Nigeria', callback_data: 'nigeria' }, { text: '🔥 Trending', callback_data: 'trending' }],
+      [{ text: '🇳🇬 Nigeria', callback_data: 'nigeria' }, { text: '🎓 Internships', callback_data: 'internships' }, { text: '🔥 Trending', callback_data: 'trending' }],
       [{ text: '💬 AI Chat', callback_data: 'chat_ai' }, { text: '🏢 Company', callback_data: 'company_prompt' }],
       [{ text: '📄 Resume', callback_data: 'resume' }, { text: '📋 Track', callback_data: 'track_prompt' }],
       [{ text: '📥 Subscribe', callback_data: 'subscribe' }, { text: '❓ Help', callback_data: 'help' }],
@@ -137,6 +137,7 @@ async function cmdStart(msg) {
     `• /find react developer — any job\n` +
     `• /remote — remote jobs\n` +
     `• /nigeria — 🇳🇬 jobs for Nigeria\n` +
+    `• /internships — 🎓 trainee & intern roles\n` +
     `• /trending — 🔥 hot jobs now\n` +
     `• /mcp-search AI engineer — across ALL sources\n\n` +
     `*Career Tools*\n` +
@@ -160,6 +161,7 @@ async function cmdHelp(msg) {
     `• /mcp-search <query> — search ALL sources (MCP)\n` +
     `• /remote — remote jobs\n` +
     `• /nigeria — Nigeria jobs\n` +
+    `• /internships — 🎓 internships & trainee roles\n` +
     `• /trending — hot jobs now\n` +
     `• /subscribe — daily delivery 7AM WAT\n\n` +
     `───────────────\n` +
@@ -304,6 +306,29 @@ async function cmdNigeria(msg) {
     let m = '🇳🇬 *Nigeria-Friendly Jobs*\n\n';
     display.slice(0, DEFAULT_LIMIT).forEach((j, i) => { m += jobCard(j, i + 1) + '\n\n'; });
     m += '_Open to applicants worldwide including Nigeria_';
+
+    await bot.editMessageText(chatId, sent.result?.message_id, m, {
+      parse_mode: 'Markdown', disable_web_page_preview: true
+    });
+  } catch (err) {
+    await bot.editMessageText(chatId, sent.result?.message_id, '❌ Try again.');
+  }
+}
+
+// /internships
+async function cmdInternships(msg) {
+  const chatId = msg.chat.id;
+  const sent = await bot.sendMessage(chatId, '🎓 Finding internships...');
+  bot.sendChatAction(chatId, 'typing');
+
+  try {
+    let jobs = await searchInternships('', DEFAULT_LIMIT); // LinkedIn/Wellfound/YC via Fantastic.jobs
+    if (!jobs.length) {
+      jobs = await megaSearch('internship', { limit: DEFAULT_LIMIT }); // fallback: any source (Jobzilla trainee category etc.)
+    }
+    let m = '🎓 *Internships & Trainee Roles*\n\n';
+    jobs.slice(0, DEFAULT_LIMIT).forEach((j, i) => { m += jobCard(j, i + 1) + '\n\n'; });
+    m += '_Fresh from LinkedIn, Wellfound & Y Combinator_';
 
     await bot.editMessageText(chatId, sent.result?.message_id, m, {
       parse_mode: 'Markdown', disable_web_page_preview: true
@@ -1095,6 +1120,7 @@ bot.on('message', async (msg) => {
       case '/find': case '/search': return rateLimited(chatId, 'find', () => cmdFind(msg, args));
       case '/remote': return rateLimited(chatId, 'remote', () => cmdRemote(msg));
       case '/nigeria': return rateLimited(chatId, 'nigeria', () => cmdNigeria(msg));
+      case '/internships': return rateLimited(chatId, 'internships', () => cmdInternships(msg));
       case '/trending': return rateLimited(chatId, 'trending', () => cmdTrending(msg));
       case '/mcp-search': case '/mcp': return rateLimited(chatId, 'mcp-search', () => cmdMcpSearch(msg, args));
       case '/sources': return cmdSources(chatId);
@@ -1187,6 +1213,7 @@ bot.on('callback_query', async (query) => {
       return bot.sendMessage(chatId, '🔍 *What job do you want?*\n\nType: /find <query>', { parse_mode: 'Markdown' });
     case 'remote': return cmdRemote(fakeMsg);
     case 'nigeria': return cmdNigeria(fakeMsg);
+    case 'internships': return cmdInternships(fakeMsg);
     case 'trending': return cmdTrending(fakeMsg);
     case 'subscribe': return cmdSubscribe(fakeMsg);
     case 'help': return cmdHelp(fakeMsg);
@@ -1285,6 +1312,7 @@ async function main() {
       { command: 'sources', description: '📡 View all job sources' },
       { command: 'remote', description: '🌍 Browse remote jobs' },
       { command: 'nigeria', description: '🇳🇬 Jobs open to Nigeria' },
+      { command: 'internships', description: '🎓 Browse internships & trainee roles' },
       { command: 'trending', description: '🔥 Hot jobs right now' },
       { command: 'company', description: '🏢 Research a company (salary, info)' },
       { command: 'track', description: '📋 Track your job applications' },
