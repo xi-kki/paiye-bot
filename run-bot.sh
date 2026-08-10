@@ -1,26 +1,63 @@
 #!/usr/bin/env bash
-# Runs paiye.js until the workflow job is cut, restarting it on crash, and
-# commits back bot state (subscribers.json, applications.json) every 10 min so
-# it survives the ephemeral runner. One run exists at a time (workflow uses
-# cancel-in-progress), so push conflicts cannot realistically occur.
+# Paiye 24/7 on GitHub Actions (public repo = free runner minutes, no card).
+# All bot state (subscribers, applications, resumes, audits) lives in the
+# PRIVATE repo xi-kki/paiye-bot-state, cloned into .state/ and symlinked into
+# the workspace. Nothing user-facing is ever committed to the public repo.
 set -u
 
 cd "$GITHUB_WORKSPACE"
 
+STATE_REPO="https://x-access-token:${GH_PAT}@github.com/xi-kki/paiye-bot-state.git"
+STATE_FILES="subscribers.json applications.json userData.json compliance-violations.json admin-audit.json blocked-users.json"
+
 git config user.name "paiye-bot"
 git config user.email "paiye-bot@users.noreply.github.com"
 
+# ── state repo ──────────────────────────────────────────────
+if [ -d .state/.git ]; then
+  git -C .state config user.name "paiye-bot"
+  git -C .state config user.email "paiye-bot@users.noreply.github.com"
+  git -C .state pull --rebase -q origin master || true
+else
+  rm -rf .state
+  git clone -q "$STATE_REPO" .state || { echo "state clone failed"; exit 1; }
+  git -C .state config user.name "paiye-bot"
+  git -C .state config user.email "paiye-bot@users.noreply.github.com"
+fi
+
+for f in $STATE_FILES; do
+  [ -f ".state/$f" ] || printf '{}\n' > ".state/$f"
+done
+mkdir -p .state/uploads
+
+# ── symlink farm: bot writes __dirname-relative files → .state ──
+for f in $STATE_FILES; do
+  ln -sfn ".state/$f" "$f"
+done
+rm -rf uploads
+ln -sfn ".state/uploads" uploads
+
+# ── seed push (no-op on later runs) ──
+git -C .state add -A || true
+git -C .state commit -q -m "seed $(date -u +%Y%m%dT%H%M%SZ)" || true
+git -C .state push -q origin master || true
+
 sync_state() {
-  git add -A || true
-  if ! git diff --cached --quiet; then
-    git commit -m "state: $(date -u +%Y%m%dT%H%M%SZ)" >/dev/null 2>&1 || true
-    git pull --rebase origin master >/dev/null 2>&1 || true
-    git push origin master >/dev/null 2>&1 || true
+  git -C .state add -A || true
+  if ! git -C .state diff --cached --quiet; then
+    git -C .state commit -q -m "state: $(date -u +%Y%m%dT%H%M%SZ)" || true
+    git -C .state pull --rebase -q origin master || true
+    git -C .state push -q origin master || true
+  fi
+  # 1 commit/day in the public repo keeps the scheduled workflow enabled
+  # (GitHub auto-disables scheduled workflows after 60d of repo inactivity).
+  if [ "$(cat .keepalive 2>/dev/null)" != "$(date -u +%Y-%m-%d)" ]; then
+    date -u +%Y-%m-%d > .keepalive
+    git add .keepalive
+    git commit -q -m "keepalive $(date -u +%Y-%m-%d)" || true
+    git push -q origin master || true
   fi
 }
-
-# Pick up state pushed by the previous cycle before polling starts.
-git pull --rebase origin master >/dev/null 2>&1 || true
 
 while true; do
   node paiye.js &
@@ -32,8 +69,6 @@ while true; do
   sync_state
   wait "$BOT_PID"
   rc=$?
-  if [ "$rc" -eq 0 ]; then
-    break
-  fi
+  if [ "$rc" -eq 0 ]; then break; fi
   sleep 10 # crash-restart
 done

@@ -27,3 +27,13 @@ feedback.log
 
 # Windows null-device redirect artifact
 nul
+
+# Runtime state lives in the PRIVATE xi-kki/paiye-bot-state repo
+# (cloned into .state/ and symlinked into the workspace by run-bot.sh).
+# NEVER commit these to this public repo.
+.state/
+subscribers.json
+applications.json
+compliance-violations.json
+admin-audit.json
+blocked-users.json

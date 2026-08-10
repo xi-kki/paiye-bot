@@ -16,7 +16,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: write # state commit-back (subscribers.json, applications.json)
+  contents: write # keepalive commit only; bot state lives in the private paiye-bot-state repo
 
 jobs:
   bot:
@@ -27,6 +27,7 @@ jobs:
       GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
       GROQ_MODEL: ${{ secrets.GROQ_MODEL }}
       FINDWORK_API_KEY: ${{ secrets.FINDWORK_API_KEY }}
+      GH_PAT: ${{ secrets.GH_PAT }}
     steps:
       - uses: actions/checkout@v4
         with:
