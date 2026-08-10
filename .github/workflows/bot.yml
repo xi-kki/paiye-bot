@@ -1,0 +1,48 @@
+name: paiye-bot-24x7
+
+# Free always-on hosting for the @Paiye_Bot polling bot.
+# GitHub-hosted runners are free for PUBLIC repos. Each job is capped at 6h,
+# so cron fires every 6h and run-bot.sh keeps polling until the job is cut.
+# `concurrency` cancels the dying run when the next one starts, so only one
+# poller is ever connected to Telegram at a time.
+
+on:
+  schedule:
+    - cron: "0 0,6,12,18 * * *" # UTC — start 00:00 / 06:00 / 12:00 / 18:00
+  workflow_dispatch: {}
+
+concurrency:
+  group: paiye-bot
+  cancel-in-progress: true
+
+permissions:
+  contents: write # state commit-back (subscribers.json, applications.json)
+
+jobs:
+  bot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 359 # hard 6h cap on hosted runners; wrapper commits state every 10 min
+    env:
+      TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      GROQ_MODEL: ${{ secrets.GROQ_MODEL }}
+      FINDWORK_API_KEY: ${{ secrets.FINDWORK_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history so git pull works across cycles
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Write .env
+        run: |
+          printf 'TELEGRAM_TOKEN=%s\n' "$TELEGRAM_TOKEN" > .env
+          printf 'GROQ_API_KEY=%s\n' "$GROQ_API_KEY" >> .env
+          printf 'GROQ_MODEL=%s\n' "$GROQ_MODEL" >> .env
+          printf 'FINDWORK_API_KEY=%s\n' "$FINDWORK_API_KEY" >> .env
+          printf 'ADMIN_IDS=8573671982\n' >> .env
+      - name: Run bot (poll + state sync loop)
+        run: bash run-bot.sh
+        shell: bash
