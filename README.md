@@ -2,9 +2,19 @@
 
 AI-powered career agent on Telegram. Finds jobs, analyzes resumes, and chats about anything — all powered by Groq AI.
 
+## 📍 Deployment notes
+| | |
+|---|---|
+| **User** | Nigerian job seekers looking for remote roles that will actually hire from Nigeria |
+| **Problem** | Most "remote" listings exclude Nigeria; checking job boards by hand takes hours a day |
+| **What I shipped** | Telegram agent: scrapes 9 job boards → filters by location eligibility → AI confidence score vs resume → daily 7AM WAT digest, plus ATS resume checks and interview prep |
+| **Result** | 1K+ commands served |
+| **Stack** | Node.js · Telegram Bot API · Groq · scheduled cron jobs |
+| **Live** | https://t.me/Paiye_Bot |
+
 ## Features
 
-- **🔍 Job Search** — Scrapes 10+ remote job boards with AI-powered matching
+- **🔍 Job Search** — Scrapes 9 remote job boards (RemoteOK, WeWorkRemotely, Jobicy, Arc.dev, JustRemote, Remote.co, 4DayWeek, RealWorkAnywhere, Remotive) with AI-powered matching
 - **📄 Resume Analysis** — Upload your resume for ATS optimization tips
 - **💬 AI Chat** — Ask anything about careers, jobs, or interview prep
 - **🌍 Remote Jobs** — Dedicated remote job search with salary filtering
